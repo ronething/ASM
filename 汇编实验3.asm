@@ -1,78 +1,126 @@
 ﻿DATAS SEGMENT
-     S1 DB ' illegal input $';16
-     S2 DB 10 DUP(?)
+    ;此处输入数据段代码  
+    ARRAY DW 4 DUP(?);存输入的四个字符
+    ARRAY1 DB 'illegal input $';23个字符
 DATAS ENDS
-
+EXTRA SEGMENT
+     ARRAY2 DB 10 DUP(?)
+	EXTRA ENDS
 STACKS SEGMENT
-     DW 30 DUP(?)
+    ;此处输入堆栈段代码
+    DW 30 DUP(?)
 STACKS ENDS
+
 CODES SEGMENT
-    ASSUME CS:CODES,DS:DATAS,SS:STACKS
-    exit0:
-    lea dx,emsg
-    mov ah,09h
-    int 21h
-    MOV AH,4CH
+    ASSUME CS:CODES,DS:DATAS,SS:STACKS,ES:EXTRA
+    
+    BIGGER:
+    SUB BX,32
+    MOV [SI],BX
+    JMP BACK1
+    
+    
+    ILLEGAL:
+    A1:
+    LEA DX,ARRAY1
+    MOV AH,09H
     INT 21H
+    MOV AH,4CH
+    INT 21H 
+    
+    ;将大于等于'A'的字符转化成数
+    A3:
+    SUB BX,'A'
+    ADD BX,10
+    JMP BACK2
+   
+   
+    
+    
 START:
     MOV AX,DATAS
     MOV DS,AX
     ;此处输入代码段代码
-    mov ax,datas
-    mov ds,ax
-    mov bx,0 ;装中间值的寄存器
-    mov cx,4 ;四次循环
-    input0:
-    mov ah,01
-    int 21h
-    cmp al,'0'
-    jb exit0
-    cmp al,'9'
-    jbe legal0 ;说明为0-9的数
-    cmp al,'a'
-    jb nosub
-    sub al,'a'-'A'
-    nosub:
-    cmp al,'A'
-    jb exit0
-    cmp al,'F'
-    ja exit0
-    sub al,7 ;变为数值的ascii
-    legal0:
-    sub al,'0'
-    push cx ;保护cx中的值
-    mov cl,4
-    shl bx,cl
-    ADD BL,AL
-    pop cx
-    loop input0
-    ;开始转换
+    MOV SI,0
+    MOV CL,4
+    INPUT:
+    MOV AH,01H
+    INT 21H
+    MOV AH,0
+    MOV [SI],AX
+    ADD SI,2
+    CMP SI,8
+    JNZ INPUT
+    ;将所有字符转化成大写
+    MOV SI,0
+    A0:
+    MOV BX,[SI]
+    CMP BX,'a'
+    JNB BIGGER
+    BACK1:
+    ADD SI,2
+    CMP SI,8
+    JNZ A0
+    ;判断是否合法
+    MOV SI,0
+    IS_LEGAL:
+    MOV AX,[SI]
+    CMP AX,'0'
+    JB ILLEGAL
+    CMP AX,'9'
+    JBE LEGAL
+    CMP AX,'A'
+    JB ILLEGAL
+    CMP AX,'F'
+    JA ILLEGAL
+    ADD SI,2
+    CMP SI,8
+    JNZ IS_LEGAL
+    LEGAL:
+    ;将四个字符转化成对应的十六进制数
+    MOV SI,0
+    MOV AX,0
+    A2:
+    MOV BX,[SI]
+    CMP BX,'A'
+    JNB A3
+     ;将大于等于'0'的字符转化成数
+    SUB BX,'0'
+    BACK2:
+    SHL AX,CL
+    ADD AX,BX
+    ADD SI,2
+    CMP SI,8
+    JNZ A2
+   
+    ;将十六进制数转化成十进制数
+    MOV BX,AX
     CMP BX,0
     JGE NONEG
     MOV AH,02
-    MOV DL,'-'
+    MOV DL,'-';先输出负号
     INT 21H
-    NEG BX
+    NEG BX;求绝对值
     NONEG:
-    MOV AX,BX
-    LEA SI,S2
-    MOV CX,10D
-    MOV DX,0
-    DIVIDE:
-    DIV CX
-    MOV [SI],DL
-    INC SI 
-    MOV DX,0
-    CMP AX,0
-    JNE DIVIDE
-    OUTPUT:
-    DEC SI
-    MOV DL,[SI]
-    ADD DL,'0';把数值转化成字符
-    MOV AH,02H
-    INT 21H
-    CMP SI,16
-    JNE OUTPUT
+    MOV DI,0
+  	MOV AX,BX
+  	MOV DX,0
+  	MOV CX,10D
+     AGAIN:
+  	DIV CX
+  	MOV BYTE PTR ES:[DI],DL
+  	INC DI
+  	MOV DX,0
+  	CMP AX,0
+    JNE AGAIN
+  	OUTPUT:
+  	DEC DI
+  	MOV DL,BYTE PTR ES:[DI]
+  	ADD DL,'0'
+  	MOV AH,02H
+  	INT 21H
+  	CMP DI,0
+  	JNE OUTPUT
     MOV AH,4CH
     INT 21H
 CODES ENDS
