@@ -1,126 +1,82 @@
 ﻿DATAS SEGMENT
-    ;此处输入数据段代码  
-    ARRAY DW 4 DUP(?);存输入的四个字符
-    ARRAY1 DB 'illegal input $';23个字符
+     S1 DB ' illegal input $';16
+     S2 DB 10 DUP(?)
 DATAS ENDS
-EXTRA SEGMENT
-     ARRAY2 DB 10 DUP(?)
-	EXTRA ENDS
-STACKS SEGMENT
-    ;此处输入堆栈段代码
-    DW 30 DUP(?)
-STACKS ENDS
 
+STACKS SEGMENT
+     DW 30 DUP(?)
+STACKS ENDS
 CODES SEGMENT
-    ASSUME CS:CODES,DS:DATAS,SS:STACKS,ES:EXTRA
-    
-    BIGGER:
-    SUB BX,32
-    MOV [SI],BX
-    JMP BACK1
-    
-    
-    ILLEGAL:
-    A1:
-    LEA DX,ARRAY1
-    MOV AH,09H
-    INT 21H
+    ASSUME CS:CODES,DS:DATAS,SS:STACKS
+    ;不符合条件输出" illegal input "
+    exit0:
+    lea dx,S1
+    mov ah,09h
+    int 21h
     MOV AH,4CH
-    INT 21H 
-    
-    ;将大于等于'A'的字符转化成数
-    A3:
-    SUB BX,'A'
-    ADD BX,10
-    JMP BACK2
-   
-   
-    
-    
+    INT 21H
 START:
     MOV AX,DATAS
     MOV DS,AX
     ;此处输入代码段代码
-    MOV SI,0
-    MOV CL,4
-    INPUT:
-    MOV AH,01H
-    INT 21H
-    MOV AH,0
-    MOV [SI],AX
-    ADD SI,2
-    CMP SI,8
-    JNZ INPUT
-    ;将所有字符转化成大写
-    MOV SI,0
-    A0:
-    MOV BX,[SI]
-    CMP BX,'a'
-    JNB BIGGER
-    BACK1:
-    ADD SI,2
-    CMP SI,8
-    JNZ A0
-    ;判断是否合法
-    MOV SI,0
-    IS_LEGAL:
-    MOV AX,[SI]
-    CMP AX,'0'
-    JB ILLEGAL
-    CMP AX,'9'
-    JBE LEGAL
-    CMP AX,'A'
-    JB ILLEGAL
-    CMP AX,'F'
-    JA ILLEGAL
-    ADD SI,2
-    CMP SI,8
-    JNZ IS_LEGAL
-    LEGAL:
-    ;将四个字符转化成对应的十六进制数
-    MOV SI,0
-    MOV AX,0
-    A2:
-    MOV BX,[SI]
-    CMP BX,'A'
-    JNB A3
-     ;将大于等于'0'的字符转化成数
-    SUB BX,'0'
-    BACK2:
-    SHL AX,CL
-    ADD AX,BX
-    ADD SI,2
-    CMP SI,8
-    JNZ A2
-   
-    ;将十六进制数转化成十进制数
-    MOV BX,AX
+
+
+    mov bx,0 ;装中间值的寄存器
+    mov cx,4 ;四次循环
+input0:
+    mov ah,01
+    int 21h
+    cmp al,'0'
+    jb exit0 ;比‘0’小 不符合条件
+    cmp al,'9'
+    jbe legal0 ;说明为0-9的数 跳到 legal0 处理
+    cmp al,'a'
+    jb nosub;比'a'小 说明可能是大写 或者 不符合
+    sub al,'a'-'A' ;比'a'大 转成大写字母 (减去'A')可能符合也可能不符合
+    nosub:
+    cmp al,'A'
+    jb exit0 ;如果比'A'小则不符合条件 退出
+    cmp al,'F'
+    ja exit0;如果比'F'大则不符合条件 退出
+    sub al,7 ;变为数值的ascii '9'=57 'A'=65
+legal0:
+    sub al,'0'
+    push cx ;保护cx中的值
+    mov cl,4
+    shl bx,cl;逻辑左移
+    ADD BL,AL
+    pop cx
+    loop input0
+    ;开始转换
     CMP BX,0
-    JGE NONEG
+    JGE NONEG;bx大于0则跳转 到 NONEG
     MOV AH,02
-    MOV DL,'-';先输出负号
+    MOV DL,'-';小于0则先显示一个负号即是'-'
     INT 21H
-    NEG BX;求绝对值
-    NONEG:
-    MOV DI,0
-  	MOV AX,BX
-  	MOV DX,0
-  	MOV CX,10D
-     AGAIN:
-  	DIV CX
-  	MOV BYTE PTR ES:[DI],DL
-  	INC DI
-  	MOV DX,0
-  	CMP AX,0
-    JNE AGAIN
-  	OUTPUT:
-  	DEC DI
-  	MOV DL,BYTE PTR ES:[DI]
-  	ADD DL,'0'
-  	MOV AH,02H
-  	INT 21H
-  	CMP DI,0
-  	JNE OUTPUT
+    NEG BX ;求补
+NONEG:
+    MOV AX,BX
+    LEA SI,S2;si而不是s1,偏移地址给s2
+    MOV CX,10D
+    MOV DX,0
+DIVIDE:
+    DIV CX;除数为cx 被除数为（dx,ax） 商为ax，余数为dx
+    MOV [SI],DL;定义的是字节 传送字节
+    INC SI 
+    MOV DX,0
+    CMP AX,0 ;(dx,ax)置为0
+    JNE DIVIDE
+OUTPUT:
+    DEC SI
+    MOV DL,[SI]
+    ADD DL,'0';把数值转化成字符
+    MOV AH,02H
+    INT 21H
+    CMP SI,16;之所以是16是因为s2放在s1之后 而 s1 占16个字节
+    JNE OUTPUT
+    
+    
+    
     MOV AH,4CH
     INT 21H
 CODES ENDS
