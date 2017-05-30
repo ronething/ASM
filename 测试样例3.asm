@@ -14,7 +14,7 @@ START:
 	MOV AX,DATAS
 	MOV DS,AX
 
-	mov cx,256;把循环次数100放入cx
+	mov cx,256;把循环次数256放入cx
 	mov bx,0
 	mov dh,0
 	mov dl,0;初始化
